@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+backend/grievances.db
+venv/
+.venv/
+.env

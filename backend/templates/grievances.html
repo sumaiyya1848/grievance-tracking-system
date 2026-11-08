@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}All grievances{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>All grievances</h1>
+  <a href="{{ url_for('submit') }}" class="btn">New grievance</a>
+</div>
+
+<div class="filters">
+  <input type="search" id="searchBox" placeholder="Search by ticket ID, name or title" aria-label="Search grievances">
+  <select id="statusFilter" aria-label="Filter by status">
+    <option value="">All statuses</option>
+    <option>Pending</option><option>In Progress</option><option>Resolved</option>
+  </select>
+  <select id="priorityFilter" aria-label="Filter by priority">
+    <option value="">All priorities</option>
+    <option>High</option><option>Medium</option><option>Low</option>
+  </select>
+  <label class="check"><input type="checkbox" id="overdueOnly"> Overdue only</label>
+</div>
+
+<div class="table-wrap">
+<table id="grievanceTable">
+  <thead>
+    <tr><th>Ticket</th><th>Complainant</th><th>Title</th><th>Priority</th><th>Status</th><th>Due date</th><th>Escalation</th></tr>
+  </thead>
+  <tbody>
+    {% for g in grievances %}
+    <tr data-status="{{ g.status }}" data-priority="{{ g.priority }}" data-overdue="{{ 'yes' if g.is_overdue else 'no' }}">
+      <td><a href="{{ url_for('detail', gid=g.id) }}">{{ g.ticket_id }}</a></td>
+      <td>{{ g.complainant_name }}</td>
+      <td>{{ g.title }}</td>
+      <td><span class="tag p-{{ g.priority|lower }}">{{ g.priority }}</span></td>
+      <td><span class="tag s-{{ g.status|lower|replace(' ', '-') }}">{{ g.status }}</span></td>
+      <td>{{ g.due_date }}{% if g.is_overdue %} <span class="tag overdue">Overdue</span>{% endif %}</td>
+      <td>{% if g.escalation_level == 0 %}None{% else %}Level {{ g.escalation_level }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p id="emptyMsg" class="empty" hidden>No grievances match these filters. Clear a filter to see more.</p>
+{% if not grievances %}<p class="empty">No grievances yet. Use New grievance to file the first one.</p>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/filters.js') }}"></script>{% endblock %}
