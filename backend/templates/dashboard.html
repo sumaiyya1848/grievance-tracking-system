@@ -1,15 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+{% set pct = ((stats.resolved / stats.total) * 100)|round(1) if stats.total else 0 %}
 <div class="page-head"><h1>Dashboard</h1></div>
 
-<div class="stat-grid">
-  <div class="stat"><span class="num">{{ stats.total }}</span><span>Total</span></div>
-  <div class="stat"><span class="num">{{ stats.pending }}</span><span>Pending</span></div>
-  <div class="stat"><span class="num">{{ stats.in_progress }}</span><span>In progress</span></div>
-  <div class="stat"><span class="num">{{ stats.resolved }}</span><span>Resolved</span></div>
-  <div class="stat warn"><span class="num">{{ stats.overdue }}</span><span>Overdue</span></div>
-  <div class="stat warn"><span class="num">{{ stats.escalated }}</span><span>Escalated</span></div>
+<div class="dash-top">
+  <div class="stat-grid">
+    <div class="stat blue"><span class="icon">&#9201;</span><span class="label">Pending</span><span class="num">{{ stats.pending }}</span></div>
+    <div class="stat orange"><span class="icon">&#8635;</span><span class="label">In progress</span><span class="num">{{ stats.in_progress }}</span></div>
+    <div class="stat green"><span class="icon">&#10003;</span><span class="label">Resolved</span><span class="num">{{ stats.resolved }}</span></div>
+    <div class="stat red"><span class="icon">!</span><span class="label">Overdue</span><span class="num">{{ stats.overdue }}</span></div>
+    <div class="stat purple"><span class="icon">&#8679;</span><span class="label">Escalated</span><span class="num">{{ stats.escalated }}</span></div>
+    <div class="stat cyan"><span class="icon">&#9776;</span><span class="label">Total</span><span class="num">{{ stats.total }}</span></div>
+  </div>
+
+  <section class="card ring-card">
+    <h2>Service level</h2>
+    <div class="ring" style="--pct: {{ pct }}">
+      <div class="ring-inner"><strong>{{ pct }}%</strong><small>resolved</small></div>
+    </div>
+  </section>
 </div>
 
 <section class="card">

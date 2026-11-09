@@ -5,20 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Grievance Tracker{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('grievances') }}">Grievance Tracker</a>
-    <nav>
-      <a href="{{ url_for('grievances') }}" class="{{ 'active' if request.endpoint in ['grievances','detail'] }}">Grievances</a>
-      <a href="{{ url_for('reminders') }}" class="{{ 'active' if request.endpoint == 'reminders' }}">Reminders</a>
-      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
-      <a href="{{ url_for('submit') }}" class="btn btn-small">New grievance</a>
-    </nav>
-  </header>
-  <main class="page">{% block content %}{% endblock %}</main>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="logo" href="{{ url_for('dashboard') }}"><span class="logo-mark">GT</span><span>Grievance Tracker</span></a>
+      <nav class="menu">
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          Dashboard</a>
+        <a href="{{ url_for('grievances') }}" class="{{ 'active' if request.endpoint in ['grievances','detail'] }}">
+          <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+          Grievances</a>
+        <a href="{{ url_for('reminders') }}" class="{{ 'active' if request.endpoint == 'reminders' }}">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 3h6"/></svg>
+          Reminders</a>
+        <a href="{{ url_for('submit') }}" class="{{ 'active' if request.endpoint == 'submit' }}">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+          New grievance</a>
+      </nav>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <span class="crumb">Overview</span>
+        <span class="user"><span class="avatar">A</span>Admin</span>
+      </header>
+      <main class="page">{% block content %}{% endblock %}</main>
+    </div>
+  </div>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
