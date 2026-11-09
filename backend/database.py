@@ -60,3 +60,8 @@ def init_db():
         ]
         if "updated_at" not in columns:
             conn.execute("ALTER TABLE grievances ADD COLUMN updated_at TEXT")
+        if "escalation_level" not in columns:
+            conn.execute(
+                "ALTER TABLE grievances "
+                "ADD COLUMN escalation_level INTEGER NOT NULL DEFAULT 0"
+            )
