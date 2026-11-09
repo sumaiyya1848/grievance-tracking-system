@@ -36,12 +36,18 @@ CREATE TABLE IF NOT EXISTS followups (
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (grievance_id) REFERENCES grievances (id)
 );
+CREATE INDEX IF NOT EXISTS idx_grievances_status ON grievances (status);
+CREATE INDEX IF NOT EXISTS idx_grievances_due_date ON grievances (due_date);
+CREATE INDEX IF NOT EXISTS idx_history_grievance ON grievance_history (grievance_id);
+CREATE INDEX IF NOT EXISTS idx_followups_grievance ON followups (grievance_id);
+CREATE INDEX IF NOT EXISTS idx_followups_remind ON followups (done, remind_at);
 """
 
 
 def get_connection():
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
