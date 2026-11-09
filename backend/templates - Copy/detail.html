@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ grievance.ticket_id }}{% endblock %}
+{% block content %}
+<a href="{{ url_for('grievances') }}" class="back">Back to all grievances</a>
+<div class="page-head">
+  <h1>{{ grievance.ticket_id }}: {{ grievance.title }}</h1>
+</div>
+
+<div class="detail-grid">
+  <section class="card">
+    <h2>Details</h2>
+    <p class="desc">{{ grievance.description }}</p>
+    <dl class="facts">
+      <div><dt>Complainant</dt><dd>{{ grievance.complainant_name }}</dd></div>
+      <div><dt>Status</dt><dd><span class="tag s-{{ grievance.status|lower|replace(' ', '-') }}">{{ grievance.status }}</span></dd></div>
+      <div><dt>Priority</dt><dd><span class="tag p-{{ grievance.priority|lower }}">{{ grievance.priority }}</span></dd></div>
+      <div><dt>Escalation</dt><dd>{% if grievance.escalation_level == 0 %}None{% else %}Level {{ grievance.escalation_level }}{% endif %}</dd></div>
+      <div><dt>Created</dt><dd>{{ grievance.created_at }}</dd></div>
+      <div><dt>Last updated</dt><dd>{{ grievance.updated_at }}</dd></div>
+      <div><dt>Due date</dt><dd>{{ grievance.due_date }}{% if grievance.is_overdue %} <span class="tag overdue">Overdue</span>{% endif %}</dd></div>
+    </dl>
+
+    <form method="POST" action="{{ url_for('update_status') }}" class="inline-form">
+      <input type="hidden" name="grievance_id" value="{{ grievance.id }}">
+      <label for="status">Change status</label>
+      <select id="status" name="status">
+        {% for s in ['Pending', 'In Progress', 'Resolved'] %}
+        <option {{ 'selected' if s == grievance.status }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-small">Save status</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Progress</h2>
+    {% if history %}
+    <ol class="timeline">
+      {% for h in history %}
+      <li><span class="when">{{ h.timestamp }}</span><span>{{ h.action }}</span></li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="empty">No activity yet.</p>{% endif %}
+  </section>
+
+  <section class="card wide">
+    <h2>Follow-ups</h2>
+    {% if followups %}
+    <ul class="followups">
+      {% for f in followups %}
+            <li class="{{ 'done' if f.done }}">
+        <span>{{ f.note }}</span>
+        <span class="when">{% if f.done %}Done{% else %}Remind on {{ f.remind_at }}{% endif %}</span>
+        {% if not f.done %}
+        <form method="POST" action="{{ url_for('mark_followup_done') }}" class="inline-form">
+          <input type="hidden" name="followup_id" value="{{ f.id }}">
+          <button type="submit" class="btn btn-small">Mark done</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="empty">No follow-ups yet. Add a note below to be reminded.</p>{% endif %}
+
+    <form method="POST" action="{{ url_for('add_followup') }}" class="inline-form followup-form" id="followupForm" novalidate>
+      <input type="hidden" name="grievance_id" value="{{ grievance.id }}">
+      <div class="field grow">
+        <label for="note">Follow-up note</label>
+        <input type="text" id="note" name="note" maxlength="200" placeholder="What needs to be followed up?">
+      </div>
+      <div class="field">
+        <label for="remind_at">Remind on</label>
+        <input type="date" id="remind_at" name="remind_at">
+      </div>
+      <button type="submit" class="btn btn-small">Add follow-up</button>
+    </form>
+    <small class="error" id="followupError"></small>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/followup.js') }}"></script>{% endblock %}

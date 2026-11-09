@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Grievance Tracker{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('grievances') }}">Grievance Tracker</a>
+    <nav>
+      <a href="{{ url_for('grievances') }}" class="{{ 'active' if request.endpoint in ['grievances','detail'] }}">Grievances</a>
+      <a href="{{ url_for('reminders') }}" class="{{ 'active' if request.endpoint == 'reminders' }}">Reminders</a>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
+      <a href="{{ url_for('submit') }}" class="btn btn-small">New grievance</a>
+    </nav>
+  </header>
+  <main class="page">{% block content %}{% endblock %}</main>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

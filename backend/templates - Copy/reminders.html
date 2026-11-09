@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Reminders{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Reminders</h1></div>
+
+<section class="card">
+  <h2>Follow-ups due</h2>
+  {% if today_followups %}
+  <ul class="followups">
+    {% for f in today_followups %}
+        <li>
+      <span><a href="{{ url_for('detail', gid=f.grievance_id) }}">{{ f.ticket_id }}</a> {{ f.note }}</span>
+      <span class="when">Remind on {{ f.remind_at }}</span>
+      <form method="POST" action="{{ url_for('mark_followup_done') }}" class="inline-form">
+        <input type="hidden" name="followup_id" value="{{ f.id }}">
+        <input type="hidden" name="next" value="reminders">
+        <button type="submit" class="btn btn-small">Mark done</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="empty">Nothing due today. New follow-ups will show up here.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Overdue grievances</h2>
+  {% if overdue_grievances %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Ticket</th><th>Title</th><th>Priority</th><th>Due date</th><th>Escalation</th></tr></thead>
+    <tbody>
+      {% for g in overdue_grievances %}
+      <tr>
+        <td><a href="{{ url_for('detail', gid=g.id) }}">{{ g.ticket_id }}</a></td>
+        <td>{{ g.title }}</td>
+        <td><span class="tag p-{{ g.priority|lower }}">{{ g.priority }}</span></td>
+        <td>{{ g.due_date }}</td>
+        <td>{% if g.escalation_level == 0 %}None{% else %}Level {{ g.escalation_level }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty">No overdue grievances.</p>{% endif %}
+</section>
+{% endblock %}

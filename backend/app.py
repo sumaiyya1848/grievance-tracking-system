@@ -177,16 +177,31 @@ def update_grievance(grievance_id):
 
         updates[field] = value
 
-    if errors:
-        return jsonify({"errors": errors}), 400
+        if errors:
+            return jsonify({"errors": errors}), 400
 
     set_clause = ", ".join(f"{field} = ?" for field in updates)
     values = list(updates.values()) + [grievance_id]
 
+    if "status" in updates:
+        label = STATUS_LABELS.get(updates["status"], updates["status"])
+        action = f"Status changed to {label}"
+        others = sorted(set(updates) - {"status"})
+        if others:
+            action += "; updated " + ", ".join(others)
+    else:
+        action = "Updated " + ", ".join(sorted(updates))
+
     conn = get_connection()
     try:
         conn.execute(
-            f"UPDATE grievances SET {set_clause} WHERE id = ?", values
+            f"UPDATE grievances SET {set_clause}, "
+            "updated_at = datetime('now') WHERE id = ?",
+            values,
+        )
+        conn.execute(
+            "INSERT INTO grievance_history (grievance_id, action) VALUES (?, ?)",
+            (grievance_id, action),
         )
         conn.commit()
     finally:

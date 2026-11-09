@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}New grievance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>New grievance</h1></div>
+
+<form id="grievanceForm" class="card form" method="POST" action="{{ url_for('submit') }}" novalidate>
+  <div class="field">
+    <label for="complainant_name">Your name</label>
+    <input type="text" id="complainant_name" name="complainant_name" maxlength="80" placeholder="Name of the person complaining">
+    <small class="error" id="complainant_nameError"></small>
+  </div>
+
+  <div class="field">
+    <label for="title">Title</label>
+    <input type="text" id="title" name="title" maxlength="100" placeholder="Short summary of the problem">
+    <small class="error" id="titleError"></small>
+  </div>
+
+  <div class="field">
+    <label for="description">Description</label>
+    <textarea id="description" name="description" rows="5" maxlength="1000" placeholder="What happened and since when?"></textarea>
+    <small class="hint"><span id="charCount">0</span> / 1000</small>
+    <small class="error" id="descriptionError"></small>
+  </div>
+
+  <div class="field">
+    <span class="label">Priority</span>
+    <div class="radios">
+      {% for p in priorities %}
+      <label class="radio"><input type="radio" name="priority" value="{{ p }}" {{ 'checked' if p == 'Medium' }}> {{ p }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="submit" class="btn">Submit grievance</button>
+    <a href="{{ url_for('grievances') }}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/validate.js') }}"></script>{% endblock %}
