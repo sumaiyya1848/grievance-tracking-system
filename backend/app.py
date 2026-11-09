@@ -595,5 +595,37 @@ def mark_followup_done():
         return redirect(url_for("reminders"))
     return redirect(url_for("detail", gid=row["grievance_id"]))
 
+@app.before_request
+def sync_escalations():
+    if request.endpoint in (None, "static"):
+        return
+
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, status, due_date, escalation_level FROM grievances"
+        ).fetchall()
+        for row in rows:
+            new_level = escalation_level(row["status"], row["due_date"])
+            if new_level > row["escalation_level"]:
+                conn.execute(
+                    "UPDATE grievances SET escalation_level = ?, "
+                    "updated_at = datetime('now') WHERE id = ?",
+                    (new_level, row["id"]),
+                )
+                conn.execute(
+                    "INSERT INTO grievance_history (grievance_id, action) "
+                    "VALUES (?, ?)",
+                    (row["id"], f"Escalated to Level {new_level}"),
+                )
+            elif new_level < row["escalation_level"]:
+                conn.execute(
+                    "UPDATE grievances SET escalation_level = ? WHERE id = ?",
+                    (new_level, row["id"]),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
 if __name__ == "__main__":
     app.run(debug=True)
