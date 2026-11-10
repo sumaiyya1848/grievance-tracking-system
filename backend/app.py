@@ -595,15 +595,22 @@ def mark_followup_done():
         return redirect(url_for("reminders"))
     return redirect(url_for("detail", gid=row["grievance_id"]))
 
+import threading
+
+from notifications import send_email
+
+
 @app.before_request
 def sync_escalations():
     if request.endpoint in (None, "static"):
         return
 
+    alerts = []
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, status, due_date, escalation_level FROM grievances"
+            "SELECT id, title, status, due_date, escalation_level "
+            "FROM grievances"
         ).fetchall()
         for row in rows:
             new_level = escalation_level(row["status"], row["due_date"])
@@ -618,6 +625,7 @@ def sync_escalations():
                     "VALUES (?, ?)",
                     (row["id"], f"Escalated to Level {new_level}"),
                 )
+                alerts.append((row["id"], row["title"], new_level, row["due_date"]))
             elif new_level < row["escalation_level"]:
                 conn.execute(
                     "UPDATE grievances SET escalation_level = ? WHERE id = ?",
@@ -627,5 +635,18 @@ def sync_escalations():
     finally:
         conn.close()
 
+    for gid, title, level, due in alerts:
+        subject = f"Grievance GRV-{gid:04d} escalated to Level {level}"
+        body = (
+            f"Ticket: GRV-{gid:04d}\n"
+            f"Title: {title}\n"
+            f"Due date: {due}\n"
+            f"New escalation level: {level}\n\n"
+            "This grievance is overdue and needs attention."
+        )
+        threading.Thread(
+            target=send_email, args=(subject, body), daemon=True
+        ).start()
 if __name__ == "__main__":
+    print("Starting SmartGrievance server...")
     app.run(debug=True)
