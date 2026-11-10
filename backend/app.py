@@ -617,29 +617,41 @@ def mark_followup_done():
         return redirect(url_for("reminders"))
     return redirect(url_for("detail", gid=row["grievance_id"]))
 
-@app.before_request
-def sync_escalations():
-    if request.endpoint in (None, "static"):
-        return
+import threading
+import time
 
+from notifications import send_email
+
+CHECK_INTERVAL = int(os.environ.get("ESCALATION_CHECK_SECONDS", "300"))
+_scheduler_started = False
+
+
+def run_escalation_check():
+    alerts = []
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, status, due_date, escalation_level FROM grievances"
+            "SELECT id, title, status, due_date, escalation_level "
+            "FROM grievances"
         ).fetchall()
         for row in rows:
             new_level = escalation_level(row["status"], row["due_date"])
             if new_level > row["escalation_level"]:
-                conn.execute(
+                cursor = conn.execute(
                     "UPDATE grievances SET escalation_level = ?, "
-                    "updated_at = datetime('now') WHERE id = ?",
-                    (new_level, row["id"]),
+                    "updated_at = datetime('now') "
+                    "WHERE id = ? AND escalation_level < ?",
+                    (new_level, row["id"], new_level),
                 )
-                conn.execute(
-                    "INSERT INTO grievance_history (grievance_id, action) "
-                    "VALUES (?, ?)",
-                    (row["id"], f"Escalated to Level {new_level}"),
-                )
+                if cursor.rowcount:
+                    conn.execute(
+                        "INSERT INTO grievance_history (grievance_id, action) "
+                        "VALUES (?, ?)",
+                        (row["id"], f"Escalated to Level {new_level}"),
+                    )
+                    alerts.append(
+                        (row["id"], row["title"], new_level, row["due_date"])
+                    )
             elif new_level < row["escalation_level"]:
                 conn.execute(
                     "UPDATE grievances SET escalation_level = ? WHERE id = ?",
@@ -648,6 +660,41 @@ def sync_escalations():
         conn.commit()
     finally:
         conn.close()
+
+    for gid, title, level, due in alerts:
+        subject = f"Grievance GRV-{gid:04d} escalated to Level {level}"
+        body = (
+            f"Ticket: GRV-{gid:04d}\n"
+            f"Title: {title}\n"
+            f"Due date: {due}\n"
+            f"New escalation level: {level}\n\n"
+            "This grievance is overdue and needs attention."
+        )
+        send_email(subject, body)
+
+    return len(alerts)
+
+
+def _escalation_loop():
+    while True:
+        try:
+            count = run_escalation_check()
+            if count:
+                print(f"Escalation check: {count} escalation(s) recorded")
+        except Exception as error:
+            print("Escalation check failed:", error)
+        time.sleep(CHECK_INTERVAL)
+
+
+def start_scheduler():
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    _scheduler_started = True
+    threading.Thread(target=_escalation_loop, daemon=True).start()
+
+
+start_scheduler()
 
 @app.route("/api/changes", methods=["GET"])
 def api_changes():
