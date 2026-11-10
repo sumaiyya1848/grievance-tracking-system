@@ -1,12 +1,16 @@
+import os
+import secrets
+
 from datetime import date, datetime, timedelta
 
 from flask import (
-    Flask, abort, jsonify, redirect, render_template, request, url_for
+    Flask, abort, jsonify, redirect, render_template, request, session, url_for
 )
 
 from flask_cors import CORS
 
 from database import get_connection, init_db
+from auth import auth_bp
 
 app = Flask(__name__)
 
@@ -16,6 +20,23 @@ CORS(app, resources={r"/api/*": {"origins": [
 ]}})
 
 init_db()
+
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.register_blueprint(auth_bp)
+
+PUBLIC_ENDPOINTS = {"auth.login", "static", "health_check"}
+
+
+@app.before_request
+def require_login():
+    if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
+        return
+        33
+    if session.get("user_id"):
+        return
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Login required"}), 401
+    return redirect(url_for("auth.login", next=request.path))
 
 VALID_PRIORITIES = {"low", "medium", "high"}
 VALID_STATUSES = {"open", "in_progress", "resolved", "closed"}
@@ -626,6 +647,27 @@ def sync_escalations():
         conn.commit()
     finally:
         conn.close()
+
+@app.route("/api/changes", methods=["GET"])
+def api_changes():
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM grievances) AS g_count,
+              (SELECT COALESCE(MAX(updated_at), '') FROM grievances) AS g_updated,
+              (SELECT COALESCE(MAX(id), 0) FROM grievance_history) AS h_max,
+              (SELECT COUNT(*) FROM followups) AS f_count,
+              (SELECT COALESCE(SUM(done), 0) FROM followups) AS f_done
+            """
+        ).fetchone()
+    finally:
+        conn.close()
+
+    response = jsonify({"version": "-".join(str(row[key]) for key in row.keys())})
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200
 
 if __name__ == "__main__":
     app.run(debug=True)

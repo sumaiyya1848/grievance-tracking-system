@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS followups (
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (grievance_id) REFERENCES grievances (id)
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_grievances_status ON grievances (status);
 CREATE INDEX IF NOT EXISTS idx_grievances_due_date ON grievances (due_date);
 CREATE INDEX IF NOT EXISTS idx_history_grievance ON grievance_history (grievance_id);
