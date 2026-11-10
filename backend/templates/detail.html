@@ -24,7 +24,7 @@
       <input type="hidden" name="grievance_id" value="{{ grievance.id }}">
       <label for="status">Change status</label>
       <select id="status" name="status">
-        {% for s in ['Pending', 'In Progress', 'Resolved'] %}
+        {% for s in ['Pending', 'In Progress', 'Resolved', 'Closed'] %}
         <option {{ 'selected' if s == grievance.status }}>{{ s }}</option>
         {% endfor %}
       </select>
