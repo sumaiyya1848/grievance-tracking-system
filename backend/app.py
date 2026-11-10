@@ -284,13 +284,14 @@ STATUS_LABELS = {
     "open": "Pending",
     "in_progress": "In Progress",
     "resolved": "Resolved",
-    "closed": "Resolved",
+     "closed": "Closed",
 }
 
 LABEL_TO_STATUS = {
     "Pending": "open",
     "In Progress": "in_progress",
     "Resolved": "resolved",
+    "Closed": "closed",
 }
 
 

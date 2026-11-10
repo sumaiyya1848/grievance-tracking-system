@@ -144,3 +144,5 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red); back
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+.s-closed { color: #475467; background: #f2f4f7; }
