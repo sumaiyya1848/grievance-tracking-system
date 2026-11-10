@@ -73,3 +73,12 @@ def init_db():
                 "ALTER TABLE grievances "
                 "ADD COLUMN escalation_level INTEGER NOT NULL DEFAULT 0"
             )
+        followup_columns = [
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(followups)")
+        ]
+        if "notified" not in followup_columns:
+            conn.execute(
+                "ALTER TABLE followups "
+                "ADD COLUMN notified INTEGER NOT NULL DEFAULT 0"
+            )    

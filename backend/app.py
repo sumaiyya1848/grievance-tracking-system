@@ -675,6 +675,49 @@ def run_escalation_check():
     return len(alerts)
 
 
+def run_followup_check():
+    due = []
+    today = date.today().isoformat()
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT f.id, f.grievance_id, f.note, f.remind_at, g.title "
+            "FROM followups f JOIN grievances g ON g.id = f.grievance_id "
+            "WHERE f.done = 0 AND f.notified = 0 AND f.remind_at <= ?",
+            (today,),
+        ).fetchall()
+        for row in rows:
+            cursor = conn.execute(
+                "UPDATE followups SET notified = 1 "
+                "WHERE id = ? AND notified = 0",
+                (row["id"],),
+            )
+            if cursor.rowcount:
+                conn.execute(
+                    "INSERT INTO grievance_history (grievance_id, action) "
+                    "VALUES (?, ?)",
+                    (row["grievance_id"], "Follow-up reminder due"),
+                )
+                due.append(dict(row))
+        conn.commit()
+    finally:
+        conn.close()
+
+    for item in due:
+        gid = item["grievance_id"]
+        subject = f"Follow-up due for GRV-{gid:04d}"
+        body = (
+            f"Ticket: GRV-{gid:04d}\n"
+            f"Title: {item['title']}\n"
+            f"Follow-up: {item['note']}\n"
+            f"Remind on: {item['remind_at']}\n\n"
+            "This follow-up is due. Please check the grievance."
+        )
+        send_email(subject, body)
+
+    return len(due)
+
+
 def _escalation_loop():
     while True:
         try:
@@ -683,6 +726,12 @@ def _escalation_loop():
                 print(f"Escalation check: {count} escalation(s) recorded")
         except Exception as error:
             print("Escalation check failed:", error)
+        try:
+            sent = run_followup_check()
+            if sent:
+                print(f"Follow-up check: {sent} reminder(s) recorded")
+        except Exception as error:
+            print("Follow-up check failed:", error)
         time.sleep(CHECK_INTERVAL)
 
 
