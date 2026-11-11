@@ -16,7 +16,7 @@ def login():
         conn = get_connection()
         try:
             user = conn.execute(
-                "SELECT id, username, password_hash FROM users WHERE username = ?",
+                "SELECT id, username, password_hash, role FROM users WHERE username = ?",
                 (username,),
             ).fetchone()
         finally:
@@ -26,6 +26,7 @@ def login():
             session.clear()
             session["user_id"] = user["id"]
             session["username"] = user["username"]
+            session["role"] = user["role"]
             next_url = request.args.get("next", "")
             if not next_url.startswith("/") or next_url.startswith("//"):
                 next_url = url_for("dashboard")

@@ -1,12 +1,16 @@
+import os
+import secrets
+
 from datetime import date, datetime, timedelta
 
 from flask import (
-    Flask, abort, jsonify, redirect, render_template, request, url_for
+    Flask, abort, jsonify, redirect, render_template, request, session, url_for
 )
 
 from flask_cors import CORS
 
 from database import get_connection, init_db
+from auth import auth_bp
 
 app = Flask(__name__)
 
@@ -16,6 +20,23 @@ CORS(app, resources={r"/api/*": {"origins": [
 ]}})
 
 init_db()
+
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.register_blueprint(auth_bp)
+
+PUBLIC_ENDPOINTS = {"auth.login", "static", "health_check"}
+
+
+@app.before_request
+def require_login():
+    if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
+        return
+        33
+    if session.get("user_id"):
+        return
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Login required"}), 401
+    return redirect(url_for("auth.login", next=request.path))
 
 VALID_PRIORITIES = {"low", "medium", "high"}
 VALID_STATUSES = {"open", "in_progress", "resolved", "closed"}
@@ -263,13 +284,14 @@ STATUS_LABELS = {
     "open": "Pending",
     "in_progress": "In Progress",
     "resolved": "Resolved",
-    "closed": "Resolved",
+     "closed": "Closed",
 }
 
 LABEL_TO_STATUS = {
     "Pending": "open",
     "In Progress": "in_progress",
     "Resolved": "resolved",
+    "Closed": "closed",
 }
 
 
@@ -596,15 +618,15 @@ def mark_followup_done():
     return redirect(url_for("detail", gid=row["grievance_id"]))
 
 import threading
+import time
 
 from notifications import send_email
 
+CHECK_INTERVAL = int(os.environ.get("ESCALATION_CHECK_SECONDS", "300"))
+_scheduler_started = False
 
-@app.before_request
-def sync_escalations():
-    if request.endpoint in (None, "static"):
-        return
 
+def run_escalation_check():
     alerts = []
     conn = get_connection()
     try:
@@ -615,17 +637,21 @@ def sync_escalations():
         for row in rows:
             new_level = escalation_level(row["status"], row["due_date"])
             if new_level > row["escalation_level"]:
-                conn.execute(
+                cursor = conn.execute(
                     "UPDATE grievances SET escalation_level = ?, "
-                    "updated_at = datetime('now') WHERE id = ?",
-                    (new_level, row["id"]),
+                    "updated_at = datetime('now') "
+                    "WHERE id = ? AND escalation_level < ?",
+                    (new_level, row["id"], new_level),
                 )
-                conn.execute(
-                    "INSERT INTO grievance_history (grievance_id, action) "
-                    "VALUES (?, ?)",
-                    (row["id"], f"Escalated to Level {new_level}"),
-                )
-                alerts.append((row["id"], row["title"], new_level, row["due_date"]))
+                if cursor.rowcount:
+                    conn.execute(
+                        "INSERT INTO grievance_history (grievance_id, action) "
+                        "VALUES (?, ?)",
+                        (row["id"], f"Escalated to Level {new_level}"),
+                    )
+                    alerts.append(
+                        (row["id"], row["title"], new_level, row["due_date"])
+                    )
             elif new_level < row["escalation_level"]:
                 conn.execute(
                     "UPDATE grievances SET escalation_level = ? WHERE id = ?",
@@ -644,9 +670,101 @@ def sync_escalations():
             f"New escalation level: {level}\n\n"
             "This grievance is overdue and needs attention."
         )
-        threading.Thread(
-            target=send_email, args=(subject, body), daemon=True
-        ).start()
+        send_email(subject, body)
+
+    return len(alerts)
+
+
+def run_followup_check():
+    due = []
+    today = date.today().isoformat()
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT f.id, f.grievance_id, f.note, f.remind_at, g.title "
+            "FROM followups f JOIN grievances g ON g.id = f.grievance_id "
+            "WHERE f.done = 0 AND f.notified = 0 AND f.remind_at <= ?",
+            (today,),
+        ).fetchall()
+        for row in rows:
+            cursor = conn.execute(
+                "UPDATE followups SET notified = 1 "
+                "WHERE id = ? AND notified = 0",
+                (row["id"],),
+            )
+            if cursor.rowcount:
+                conn.execute(
+                    "INSERT INTO grievance_history (grievance_id, action) "
+                    "VALUES (?, ?)",
+                    (row["grievance_id"], "Follow-up reminder due"),
+                )
+                due.append(dict(row))
+        conn.commit()
+    finally:
+        conn.close()
+
+    for item in due:
+        gid = item["grievance_id"]
+        subject = f"Follow-up due for GRV-{gid:04d}"
+        body = (
+            f"Ticket: GRV-{gid:04d}\n"
+            f"Title: {item['title']}\n"
+            f"Follow-up: {item['note']}\n"
+            f"Remind on: {item['remind_at']}\n\n"
+            "This follow-up is due. Please check the grievance."
+        )
+        send_email(subject, body)
+
+    return len(due)
+
+
+def _escalation_loop():
+    while True:
+        try:
+            count = run_escalation_check()
+            if count:
+                print(f"Escalation check: {count} escalation(s) recorded")
+        except Exception as error:
+            print("Escalation check failed:", error)
+        try:
+            sent = run_followup_check()
+            if sent:
+                print(f"Follow-up check: {sent} reminder(s) recorded")
+        except Exception as error:
+            print("Follow-up check failed:", error)
+        time.sleep(CHECK_INTERVAL)
+
+
+def start_scheduler():
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    _scheduler_started = True
+    threading.Thread(target=_escalation_loop, daemon=True).start()
+
+
+start_scheduler()
+
+@app.route("/api/changes", methods=["GET"])
+def api_changes():
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM grievances) AS g_count,
+              (SELECT COALESCE(MAX(updated_at), '') FROM grievances) AS g_updated,
+              (SELECT COALESCE(MAX(id), 0) FROM grievance_history) AS h_max,
+              (SELECT COUNT(*) FROM followups) AS f_count,
+              (SELECT COALESCE(SUM(done), 0) FROM followups) AS f_done
+            """
+        ).fetchone()
+    finally:
+        conn.close()
+
+    response = jsonify({"version": "-".join(str(row[key]) for key in row.keys())})
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200
+
 if __name__ == "__main__":
-    print("Starting SmartGrievance server...")
     app.run(debug=True)

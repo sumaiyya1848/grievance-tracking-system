@@ -10,8 +10,8 @@ def send_email(subject, body):
     password = os.environ.get("EMAIL_PASSWORD")
     recipient = os.environ.get("ALERT_EMAIL")
 
-    if not all([user, password, recipient]):
-        print("Email configuration is incomplete.")
+    if not (user and password and recipient):
+        print("Email is not set up, skipping:", subject)
         return False
 
     message = EmailMessage()
@@ -25,10 +25,7 @@ def send_email(subject, body):
             server.starttls()
             server.login(user, password)
             server.send_message(message)
-
-        print("Email sent successfully:", subject)
         return True
-
-    except (smtplib.SMTPException, OSError, ValueError) as error:
-        print("Email sending failed:", error)
+    except Exception as error:
+        print("Email failed:", error)
         return False
