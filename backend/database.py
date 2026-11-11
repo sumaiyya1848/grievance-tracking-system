@@ -81,4 +81,13 @@ def init_db():
             conn.execute(
                 "ALTER TABLE followups "
                 "ADD COLUMN notified INTEGER NOT NULL DEFAULT 0"
-            )    
+            ) 
+        user_columns = [
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(users)")
+        ]
+        if "role" not in user_columns:
+            conn.execute(
+                "ALTER TABLE users "
+                "ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'"
+            )   
