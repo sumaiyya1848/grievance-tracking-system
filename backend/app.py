@@ -38,6 +38,19 @@ def require_login():
         return jsonify({"error": "Login required"}), 401
     return redirect(url_for("auth.login", next=request.path))
 
+from functools import wraps
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if session.get("role") != "admin":
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Admin only"}), 403
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapper
+
 VALID_PRIORITIES = {"low", "medium", "high"}
 VALID_STATUSES = {"open", "in_progress", "resolved", "closed"}
 
@@ -151,6 +164,7 @@ def get_grievance(grievance_id):
 
 
 @app.route("/api/grievances/<int:grievance_id>", methods=["PATCH"])
+@admin_required
 def update_grievance(grievance_id):
     if fetch_grievance(grievance_id) is None:
         return jsonify({"error": "Grievance not found"}), 404
@@ -327,6 +341,8 @@ def to_page_item(row):
 
 @app.route("/")
 def dashboard():
+    if session.get("role") != "admin":
+        return redirect(url_for("grievances"))
     today = date.today().isoformat()
 
     conn = get_connection()
@@ -377,6 +393,9 @@ def submit():
     description = request.form.get("description", "").strip()
     priority = request.form.get("priority", "medium").strip().lower()
 
+    if session.get("role") == "user":
+        complainant_name = session.get("username")
+
     errors = []
     for field, value in [("complainant_name", complainant_name),
                          ("title", title),
@@ -399,10 +418,12 @@ def submit():
         conn.execute(
             """
             INSERT INTO grievances
-                (title, description, complainant_name, priority, due_date)
-            VALUES (?, ?, ?, ?, ?)
+                (title, description, complainant_name, priority, due_date,
+                 user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (title, description, complainant_name, priority, due_date),
+            (title, description, complainant_name, priority, due_date,
+             session.get("user_id")),
         )
         conn.commit()
     finally:
@@ -460,6 +481,7 @@ def detail(gid):
 
 
 @app.route("/status", methods=["POST"])
+@admin_required
 def update_status():
     gid = request.form.get("grievance_id", type=int)
     label = request.form.get("status", "")
@@ -491,6 +513,7 @@ def update_status():
 
 
 @app.route("/followup", methods=["POST"])
+@admin_required
 def add_followup():
     gid = request.form.get("grievance_id", type=int)
     note = request.form.get("note", "").strip()
@@ -529,6 +552,7 @@ def add_followup():
 
 
 @app.route("/reminders")
+@admin_required
 def reminders():
     today = date.today().isoformat()
 
@@ -589,6 +613,7 @@ def api_stats():
     return jsonify({"by_priority": by_priority}), 200
 
 @app.route("/followup/done", methods=["POST"])
+@admin_required
 def mark_followup_done():
     followup_id = request.form.get("followup_id", type=int)
     next_page = request.form.get("next", "detail")

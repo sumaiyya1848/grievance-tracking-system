@@ -20,6 +20,7 @@
       <div><dt>Due date</dt><dd>{{ grievance.due_date }}{% if grievance.is_overdue %} <span class="tag overdue">Overdue</span>{% endif %}</dd></div>
     </dl>
 
+    {% if session.get('role') == 'admin' %}
     <form method="POST" action="{{ url_for('update_status') }}" class="inline-form">
       <input type="hidden" name="grievance_id" value="{{ grievance.id }}">
       <label for="status">Change status</label>
@@ -30,6 +31,7 @@
       </select>
       <button type="submit" class="btn btn-small">Save status</button>
     </form>
+    {% endif %}
   </section>
 
   <section class="card">
@@ -43,12 +45,13 @@
     {% else %}<p class="empty">No activity yet.</p>{% endif %}
   </section>
 
+  {% if session.get('role') == 'admin' %}
   <section class="card wide">
     <h2>Follow-ups</h2>
     {% if followups %}
     <ul class="followups">
       {% for f in followups %}
-            <li class="{{ 'done' if f.done }}">
+      <li class="{{ 'done' if f.done }}">
         <span>{{ f.note }}</span>
         <span class="when">{% if f.done %}Done{% else %}Remind on {{ f.remind_at }}{% endif %}</span>
         {% if not f.done %}
@@ -76,6 +79,7 @@
     </form>
     <small class="error" id="followupError"></small>
   </section>
+  {% endif %}
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/followup.js') }}"></script>{% endblock %}
+{% block scripts %}{% if session.get('role') == 'admin' %}<script src="{{ url_for('static', filename='js/followup.js') }}"></script>{% endif %}{% endblock %}
